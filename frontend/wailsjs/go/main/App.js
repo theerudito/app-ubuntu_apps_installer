@@ -6,6 +6,14 @@ export function InstallDeb(arg1) {
   return window['go']['main']['App']['InstallDeb'](arg1);
 }
 
+export function ListInstalledApplications() {
+  return window['go']['main']['App']['ListInstalledApplications']();
+}
+
 export function SelectDebFile() {
   return window['go']['main']['App']['SelectDebFile']();
+}
+
+export function UninstallPackage(arg1) {
+  return window['go']['main']['App']['UninstallPackage'](arg1);
 }

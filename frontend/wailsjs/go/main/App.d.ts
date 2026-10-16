@@ -4,4 +4,8 @@ import {main} from '../models';
 
 export function InstallDeb(arg1:string):Promise<main.InstallResult>;
 
+export function ListInstalledApplications():Promise<Array<main.InstalledApplication>>;
+
 export function SelectDebFile():Promise<string>;
+
+export function UninstallPackage(arg1:string):Promise<main.InstallResult>;
