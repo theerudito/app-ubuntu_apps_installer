@@ -39,3 +39,36 @@ func TestValidateDebPath(t *testing.T) {
 		})
 	}
 }
+
+func TestIsApplicationDesktopEntry(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "system application entry", path: "/usr/share/applications/example.desktop", want: true},
+		{name: "local application entry", path: "/usr/local/share/applications/example.desktop", want: true},
+		{name: "different directory", path: "/usr/share/icons/example.desktop", want: false},
+		{name: "non desktop file", path: "/usr/share/applications/example.desktop.bak", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isApplicationDesktopEntry(test.path); got != test.want {
+				t.Fatalf("isApplicationDesktopEntry(%q) = %t, want %t", test.path, got, test.want)
+			}
+		})
+	}
+}
+
+func TestFilterInstalledApplications(t *testing.T) {
+	packages := []installedPackage{
+		{packageName: "editor", status: "install ok installed", version: "1.0", priority: "optional", section: "editors", description: "Text editor"},
+		{packageName: "library", status: "install ok installed", priority: "optional", section: "libs"},
+		{packageName: "not-installed", status: "deinstall ok config-files", priority: "optional"},
+		{packageName: "no-entry", status: "install ok installed", priority: "optional", section: "utils"},
+	}
+	got := filterInstalledApplications(packages, map[string]struct{}{"editor": {}})
+	if len(got) != 1 || got[0].PackageName != "editor" {
+		t.Fatalf("filterInstalledApplications() = %#v, want only editor", got)
+	}
+}

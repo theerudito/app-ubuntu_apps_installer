@@ -12,6 +12,7 @@ function App() {
     const [isInstalling, setIsInstalling] = useState(false);
     const [isResultOpen, setIsResultOpen] = useState(false);
     const [applications, setApplications] = useState<main.InstalledApplication[]>([]);
+    const [applicationSearch, setApplicationSearch] = useState('');
     const [selectedPackage, setSelectedPackage] = useState<main.InstalledApplication | null>(null);
     const [isLoadingApplications, setIsLoadingApplications] = useState(false);
     const [applicationsError, setApplicationsError] = useState('');
@@ -63,6 +64,17 @@ function App() {
         if (tab === 'uninstall') void loadApplications();
     }, [tab]);
 
+    const normalizedSearch = applicationSearch.trim().toLowerCase();
+    const filteredApplications = applications.filter((application) =>
+        !normalizedSearch || `${application.packageName} ${application.description}`.toLowerCase().includes(normalizedSearch),
+    );
+
+    useEffect(() => {
+        if (selectedPackage && !filteredApplications.some((application) => application.packageName === selectedPackage.packageName)) {
+            setSelectedPackage(null);
+        }
+    }, [applicationSearch, applications, selectedPackage]);
+
     async function uninstallPackage() {
         if (!selectedPackage) return;
         setIsConfirmingUninstall(false);
@@ -112,9 +124,9 @@ function App() {
                     </>
                 ) : (
                     <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-slate-800 bg-slate-950/70 p-3 text-left">
-                        <div className="flex items-center justify-between"><div><p className="text-lg font-semibold">Installed applications</p><p className="text-sm text-slate-400">Select an application to remove it.</p></div><button className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-50" disabled={isLoadingApplications || isUninstalling} onClick={() => void loadApplications()} type="button">Refresh</button></div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-lg font-semibold">Installed applications</p><p className="text-sm text-slate-400">Select an application to remove it.</p></div><div className="flex gap-2"><input aria-label="Search applications" className="min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-400" onChange={(event) => setApplicationSearch(event.target.value)} placeholder="Search applications" type="search" value={applicationSearch} /><button className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-50" disabled={isLoadingApplications || isUninstalling} onClick={() => void loadApplications()} type="button">Refresh</button></div></div>
                         {applicationsError ? <p className="mt-4 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-rose-300">{applicationsError}</p> : null}
-                        {isLoadingApplications ? <p className="mt-4 text-slate-400">Loading installed applications...</p> : applications.length === 0 && !applicationsError ? <p className="mt-4 text-slate-400">No removable applications were found.</p> : <div className="mt-4 min-h-0 space-y-2 overflow-y-auto">{applications.map((application) => <button key={application.packageName} className={`w-full rounded-lg border p-3 text-left transition ${selectedPackage?.packageName === application.packageName ? 'border-cyan-400 bg-cyan-400/10' : 'border-slate-800 bg-slate-900 hover:border-slate-600'}`} onClick={() => setSelectedPackage(application)} type="button"><span className="font-semibold">{application.packageName}</span><span className="ml-2 text-xs text-slate-400">{application.version}</span><span className="mt-1 block text-sm text-slate-400">{application.description || 'No description available.'}</span></button>)}</div>}
+                        {isLoadingApplications ? <p className="mt-4 text-slate-400">Loading installed applications...</p> : applications.length === 0 && !applicationsError ? <p className="mt-4 text-slate-400">No removable applications were found.</p> : filteredApplications.length === 0 ? <p className="mt-4 text-slate-400">No applications match your search.</p> : <div className="mt-4 min-h-0 space-y-2 overflow-y-auto">{filteredApplications.map((application) => <button key={application.packageName} className={`w-full rounded-lg border p-3 text-left transition ${selectedPackage?.packageName === application.packageName ? 'border-cyan-400 bg-cyan-400/10' : 'border-slate-800 bg-slate-900 hover:border-slate-600'}`} onClick={() => setSelectedPackage(application)} type="button"><span className="font-semibold">{application.packageName}</span><span className="ml-2 text-xs text-slate-400">{application.version}</span><span className="mt-1 block text-sm text-slate-400">{application.description || 'No description available.'}</span></button>)}</div>}
                         <button className="mt-4 rounded-lg bg-rose-500 px-4 py-2.5 font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50" disabled={!selectedPackage || isUninstalling} onClick={() => setIsConfirmingUninstall(true)} type="button">{isUninstalling ? 'Uninstalling...' : 'Uninstall selected application'}</button>
                     </section>
                 )}

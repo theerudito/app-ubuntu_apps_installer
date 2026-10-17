@@ -43,6 +43,16 @@ type InstalledApplication struct {
 	Description string `json:"description"`
 }
 
+type installedPackage struct {
+	packageName string
+	status      string
+	version     string
+	essential   string
+	priority    string
+	section     string
+	description string
+}
+
 var packageIdentifierPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9+.-]*(?::[a-z0-9][a-z0-9+.-]*)?$`)
 
 // SelectDebFile opens a native file picker restricted to Debian packages.
@@ -119,27 +129,20 @@ func (a *App) ListInstalledApplications() ([]InstalledApplication, error) {
 		return nil, fmt.Errorf("could not list installed packages: %w", err)
 	}
 
-	applications := make([]InstalledApplication, 0)
+	desktopPackages, err := applicationDesktopPackages()
+	if err != nil {
+		return nil, fmt.Errorf("could not inspect application desktop entries: %w", err)
+	}
+
+	packages := make([]installedPackage, 0)
 	for _, line := range strings.Split(string(output), "\n") {
 		fields := strings.SplitN(line, "\t", 7)
-		if len(fields) != 7 || fields[1] != "install ok installed" || strings.EqualFold(fields[3], "yes") {
+		if len(fields) != 7 {
 			continue
 		}
-		priority := strings.ToLower(fields[4])
-		section := strings.ToLower(fields[5])
-		if priority != "optional" && priority != "extra" {
-			continue
-		}
-		if isSystemPackageSection(section) {
-			continue
-		}
-		description := strings.TrimSpace(strings.SplitN(fields[6], "\n", 2)[0])
-		applications = append(applications, InstalledApplication{
-			PackageName: fields[0],
-			Version:     fields[2],
-			Description: description,
-		})
+		packages = append(packages, installedPackage{packageName: fields[0], status: fields[1], version: fields[2], essential: fields[3], priority: fields[4], section: fields[5], description: strings.TrimSpace(strings.SplitN(fields[6], "\n", 2)[0])})
 	}
+	applications := filterInstalledApplications(packages, desktopPackages)
 
 	sort.Slice(applications, func(i, j int) bool { return applications[i].PackageName < applications[j].PackageName })
 	return applications, nil
@@ -174,6 +177,71 @@ func (a *App) UninstallPackage(packageName string) InstallResult {
 	result.Success = true
 	result.Message = "Package uninstalled successfully."
 	return result
+}
+
+var standardApplicationDirectories = []string{"/usr/share/applications", "/usr/local/share/applications"}
+
+func applicationDesktopPackages() (map[string]struct{}, error) {
+	packages := make(map[string]struct{})
+	for _, directory := range standardApplicationDirectories {
+		err := filepath.WalkDir(directory, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				if os.IsNotExist(err) {
+					return filepath.SkipDir
+				}
+				return err
+			}
+			if entry.IsDir() || !isApplicationDesktopEntry(path) {
+				return nil
+			}
+			output, err := exec.Command("dpkg-query", "-S", "--", path).Output()
+			if err != nil {
+				return nil
+			}
+			for _, line := range strings.Split(string(output), "\n") {
+				if separator := strings.Index(line, ": "); separator > 0 {
+					packages[line[:separator]] = struct{}{}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return packages, nil
+}
+
+func isApplicationDesktopEntry(path string) bool {
+	path = filepath.ToSlash(filepath.Clean(path))
+	for _, directory := range standardApplicationDirectories {
+		directory = filepath.ToSlash(filepath.Clean(directory))
+		if strings.HasPrefix(path, directory+"/") && strings.EqualFold(filepath.Ext(path), ".desktop") {
+			return true
+		}
+	}
+	return false
+}
+
+func filterInstalledApplications(packages []installedPackage, desktopPackages map[string]struct{}) []InstalledApplication {
+	applications := make([]InstalledApplication, 0)
+	for _, packageInfo := range packages {
+		if packageInfo.status != "install ok installed" || strings.EqualFold(packageInfo.essential, "yes") {
+			continue
+		}
+		priority := strings.ToLower(packageInfo.priority)
+		if priority != "optional" && priority != "extra" {
+			continue
+		}
+		if isSystemPackageSection(strings.ToLower(packageInfo.section)) {
+			continue
+		}
+		if _, ownsDesktopEntry := desktopPackages[packageInfo.packageName]; !ownsDesktopEntry {
+			continue
+		}
+		applications = append(applications, InstalledApplication{PackageName: packageInfo.packageName, Version: packageInfo.version, Description: packageInfo.description})
+	}
+	return applications
 }
 
 func isSystemPackageSection(section string) bool {
