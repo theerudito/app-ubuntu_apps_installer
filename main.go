@@ -17,7 +17,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:         "deb_installer",
+		Title:         "Deb Installer / Uninstaller",
 		Width:         440,
 		Height:        500,
 		MinWidth:      440,

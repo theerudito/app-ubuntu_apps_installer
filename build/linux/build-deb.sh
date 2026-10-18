@@ -14,7 +14,8 @@ BINARY="$PROJECT_ROOT/build/bin/deb_installer"
 ICON="$PROJECT_ROOT/build/linux/icons.png"
 
 STAGING_DIR="$PROJECT_ROOT/build/deb/$PACKAGE_NAME"
-OUTPUT_DIR="$PROJECT_ROOT/build/installer"
+DEB_DIR="$PROJECT_ROOT/build/deb"
+OUTPUT_DIR="$PROJECT_ROOT/build/linux"
 OUTPUT_FILE="$OUTPUT_DIR/${PACKAGE_NAME}_${VERSION}_${ARCH}.deb"
 
 echo "======================================"
@@ -195,7 +196,7 @@ fi
 
 echo "==> Limpiando archivos temporales..."
 
-rm -rf "$STAGING_DIR"
+rm -rf "$DEB_DIR"
 
 # --------------------------------------
 # FINAL
